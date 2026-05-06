@@ -9,33 +9,29 @@ def afiseaza_analiza_descriptiva(df_raw, df_final):
     tab1, tab2 = st.tabs(["Date brute", "Date preprocesate"])
 
     with tab1:
-        st.subheader("1. Setul de date inițial")
-        st.write("Primele 10 rânduri din setul de date brut:")
-        st.dataframe(df_raw.head(10))
+        st.subheader("1. Structura setului de date brut")
+        st.write(
+            "Datele brute sunt afișate complet în pagina dedicată `Date Brute`. "
+            "Aici păstrăm doar informații descriptive despre structura lor."
+        )
+
+        st.info(f"Setul brut are {df_raw.shape[0]} rânduri și {df_raw.shape[1]} coloane.")
 
         st.subheader("2. Tipurile de date")
         tipuri_date_raw = df_raw.dtypes.reset_index()
         tipuri_date_raw.columns = ["Coloană", "Tip de date"]
-        st.dataframe(tipuri_date_raw)
+        st.dataframe(tipuri_date_raw, use_container_width=True)
 
-        st.subheader("3. Statistici descriptive")
-        st.dataframe(df_raw.describe())
+        st.subheader("3. Valori lipsă în datele brute")
+        valori_lipsa = df_raw.isna().sum().reset_index()
+        valori_lipsa.columns = ["Coloană", "Număr valori lipsă"]
+        valori_lipsa = valori_lipsa[valori_lipsa["Număr valori lipsă"] > 0]
 
-        coloane_numerice_raw = df_raw.select_dtypes(include="number").columns.tolist()
-
-        if len(coloane_numerice_raw) > 0:
-            st.subheader("4. Histogramă pentru date brute")
-            variabila_hist_raw = st.selectbox(
-                "Alege o variabilă pentru histogramă (date brute):",
-                coloane_numerice_raw,
-                key="hist_raw"
-            )
-            fig_hist_raw = px.histogram(
-                df_raw,
-                x=variabila_hist_raw,
-                title=f"Distribuția variabilei {variabila_hist_raw} (date brute)"
-            )
-            st.plotly_chart(fig_hist_raw, use_container_width=True)
+        if valori_lipsa.empty:
+            st.success("Nu există valori lipsă în setul de date brut.")
+        else:
+            st.warning("Există valori lipsă în setul de date brut.")
+            st.dataframe(valori_lipsa, use_container_width=True)
 
     with tab2:
         st.subheader("1. Setul de date după preprocesare")
@@ -123,3 +119,50 @@ def afiseaza_analiza_descriptiva(df_raw, df_final):
                 title="Distribuția variabilei Emisii_Ridicate"
             )
             st.plotly_chart(fig_clase, use_container_width=True)
+
+        if "Emisii_Ridicate" in df_final.columns:
+            st.subheader("10. Grupare și agregare după nivelul emisiilor")
+
+            df_agregat_emisii = df_final.groupby("Emisii_Ridicate").agg({
+                "EMISII CO2": ["count", "mean", "median", "min", "max"],
+                "PIB/capita": ["mean", "median"],
+                "ELECTRICITATE": ["mean"],
+                "URBAN": ["mean"],
+                "SERVICII": ["mean"]
+            })
+
+            df_agregat_emisii.index = df_agregat_emisii.index.map({
+                0: "Emisii reduse",
+                1: "Emisii ridicate"
+            })
+
+            st.write("Tabel agregat obținut cu `groupby()` și `agg()`:")
+            st.dataframe(df_agregat_emisii, use_container_width=True)
+
+            df_agregat_plot = df_final.groupby("Emisii_Ridicate", as_index=False).agg({
+                "PIB/capita": "mean",
+                "ELECTRICITATE": "mean",
+                "URBAN": "mean",
+                "SERVICII": "mean"
+            })
+
+            df_agregat_plot["Categorie emisii"] = df_agregat_plot["Emisii_Ridicate"].map({
+                0: "Emisii reduse",
+                1: "Emisii ridicate"
+            })
+
+            indicator_agregat = st.selectbox(
+                "Alege indicatorul pentru comparația agregată:",
+                ["PIB/capita", "ELECTRICITATE", "URBAN", "SERVICII"],
+                key="indicator_agregat"
+            )
+
+            fig_agregat = px.bar(
+                df_agregat_plot,
+                x="Categorie emisii",
+                y=indicator_agregat,
+                title=f"Media indicatorului {indicator_agregat} pe grupe de emisii",
+                text_auto=True
+            )
+
+            st.plotly_chart(fig_agregat, use_container_width=True)

@@ -27,6 +27,17 @@ def obtine_coloane_numerice(df):
 def aplica_preprocesare(df_raw):
     df_final = df_raw.copy()
 
+    coloane_numerice = df_final.select_dtypes(include=[np.number]).columns
+    coloane_categorice = df_final.select_dtypes(include=["object"]).columns
+
+    for col in coloane_numerice:
+        if df_final[col].isna().sum() > 0:
+            df_final[col] = df_final[col].fillna(df_final[col].median())
+
+    for col in coloane_categorice:
+        if df_final[col].isna().sum() > 0:
+            df_final[col] = df_final[col].fillna(df_final[col].mode()[0])
+
     for col in ["EMISII CO2", "PIB/capita"]:
         if col in df_final.columns:
             limita = df_final[col].quantile(0.95)
